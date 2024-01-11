@@ -39,7 +39,7 @@ func Test_Builder(t *testing.T) {
 			"simple message, text with literal",
 			NewBuilder().
 				Text("Hello, ").
-				Expr(Literal("World")).
+				Expr(Expr("World")).
 				Text("!"),
 			"Hello, { World }!",
 		},
@@ -47,7 +47,7 @@ func Test_Builder(t *testing.T) {
 			"simple message, text and expr with options",
 			NewBuilder().
 				Text("Hello, ").
-				Expr(Var("$world").Func(":upper", Option("limit", 2), Option("min", "$min"), Option("type", "integer"))).
+				Expr(Expr(Var("world")).Func(":upper", Option("limit", 2), Option("min", Var("min")), Option("type", "integer"))).
 				Text("!"),
 			"Hello, { $world :upper limit = 2 min = $min type = integer }!",
 		},
@@ -72,70 +72,70 @@ func Test_Builder(t *testing.T) {
 		},
 		{
 			"complex message, text with special chars",
-			NewBuilder().Local("$var", Literal("greeting")),
+			NewBuilder().Local("$var", Expr("greeting")),
 			".local $var = { greeting }\n{{}}",
 		},
 		{
 			"complex message, local declaration",
 			NewBuilder().
-				Local("$hostName", Var("$host")).
-				Expr(Var("$hostName")),
+				Local("$hostName", Expr(Var("host"))).
+				Expr(Expr(Var("hostName"))),
 			".local $hostName = { $host }\n{{{ $hostName }}}",
 		},
 		{
 			"complex message, input declaration",
 			NewBuilder().
-				Input(Var("$host")).
-				Expr(Var("$host")),
+				Input(Expr(Var("host"))).
+				Expr(Expr(Var("host"))),
 			".input { $host }\n{{{ $host }}}",
 		},
 		{
 			"complex message, input and local declaration",
 			NewBuilder().
-				Local("$hostName", Var("$host")).
-				Input(Var("$host")).
-				Expr(Var("$host")),
+				Local("$hostName", Expr(Var("host"))).
+				Input(Expr(Var("host"))).
+				Expr(Expr(Var("host"))),
 			".input { $host }\n.local $hostName = { $host }\n{{{ $host }}}",
 		},
 		{
 			"complex message, matcher with multiple keys",
 			NewBuilder().
 				Match(
-					Var("$i"),
-					Var("$j"),
+					Expr(Var("i")),
+					Expr().Var("j"),
 				).
 				Keys(1, 2).Text("{first}").
-				Keys(2, 0).Text("second ").Expr(Var("$i")).
-				Keys(3, 0).Expr(Literal("\\a|")).
-				Keys("*", "*").Expr(Literal(1)),
+				Keys(2, 0).Text("second ").Expr(Expr().Var("i")).
+				Keys(3, 0).Expr(Expr("\\a|")).
+				Keys("*", "*").Expr(Expr(1)),
 			".match { $i } { $j }\n1 2 {{\\{first\\}}}\n2 0 {{second { $i }}}\n3 0 {{{ |\\\\a\\|| }}}\n* * {{{ 1 }}}",
 		},
 		{
 			"complex message, matcher with multiple keys and local declarations",
 			NewBuilder().
-				Input(Var("$i")).
-				Local("$hostName", Var("$i")).
+				Input(Expr().Var("i")).
+				Local("$hostName", Expr().Var("i")).
 				Match(
-					Var("$i"),
-					Var("$j"),
+					Expr().Var("i"),
+					Expr().Var("j"),
 				).
 				Keys(1, 2).Text("{first}").
-				Keys(2, 0).Text("second ").Expr(Var("$i")).
-				Keys(3, 0).Expr(Literal("\\a|")).
-				Keys("*", "*").Expr(Literal(1)),
+				Keys(2, 0).Text("second ").Expr(Expr().Var("i")).
+				Keys(3, 0).Expr(Expr("\\a|")).
+				Keys("*", "*").Expr(Expr(1)),
 			".input { $i }\n.local $hostName = { $i }\n.match { $i } { $j }\n1 2 {{\\{first\\}}}\n2 0 {{second { $i }}}\n3 0 {{{ |\\\\a\\|| }}}\n* * {{{ 1 }}}",
 		},
 		{
 			"spacing",
 			NewBuilder().
 				Match(
-					Var("$i"),
-					Var("$j"),
+					Expr().Var("i"),
+					Expr().Var("j"),
 				).
 				Keys(1, 2).Text("{first}").
-				Keys(2, 0).Text("second ").Expr(Var("$i")).
-				Keys(3, 0).Expr(Literal("\\a|")).
-				Keys("*", "*").Expr(Literal(1)).
+				Keys(2, 0).Text("second ").Expr(Expr().Var("i")).
+				Keys(3, 0).Expr(Expr("\\a|")).
+				Keys("*", "*").Expr(Expr(1)).
 				Spacing(""),
 			".match{$i}{$j}\n1 2{{\\{first\\}}}\n2 0{{second {$i}}}\n3 0{{{|\\\\a\\||}}}\n* *{{{1}}}",
 		},

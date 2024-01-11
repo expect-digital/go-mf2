@@ -175,7 +175,7 @@ func (b *Builder) Local(v string, expr *Expression) *Builder {
 		return b
 	}
 
-	b.locals = append(b.locals, local{variable: variable(v), expr: expr})
+	b.locals = append(b.locals, local{variable: Var(v), expr: expr})
 
 	return b
 }
@@ -190,7 +190,18 @@ func (b *Builder) Input(expr *Expression) *Builder {
 	return b
 }
 
-func Expr() *Expression { return new(Expression) }
+func Expr(operand ...any) *Expression {
+	if len(operand) == 0 {
+		return new(Expression)
+	}
+
+	switch v := operand[0].(type) {
+	default:
+		return &Expression{operand: Literal(v)}
+	case Var, Literal:
+		return &Expression{operand: v}
+	}
+}
 
 func (b *Builder) Expr(expr *Expression) *Builder {
 	if b.err != nil {
@@ -276,12 +287,16 @@ func (v *variant) build(spacing string) string {
 
 type local struct {
 	expr     *Expression
-	variable variable
+	variable Var
 }
 
-type literal any
+type Literal any
 
-type variable string
+type Var string
+
+func (v Var) String() string {
+	return "$" + string(v)
+}
 
 type function struct {
 	name    string
@@ -297,11 +312,11 @@ func (e *Expression) build(spacing string) string {
 	s := "{" + spacing
 
 	switch v := e.operand.(type) {
-	case variable:
-		s += string(v)
+	case Var:
+		s += v.String()
 	case nil:
 		// noop
-	case literal:
+	case Literal:
 		s += printLiteral(v)
 	default:
 		panic(fmt.Sprintf("unsupported operand type: %T", v))
@@ -317,20 +332,17 @@ func (e *Expression) build(spacing string) string {
 		for _, o := range e.function.options {
 			s += " " + o.key + spacing + "=" + spacing
 
-			if v, ok := o.operand.(string); ok && len(v) > 0 && v[0] == '$' { // recognized as variable if string starts with $
-				s += v
-				continue
+			switch v := o.operand.(type) {
+			default:
+				s += printLiteral(o.operand)
+			case Var:
+				s += v.String()
 			}
 
-			s += printLiteral(o.operand)
 		}
 	}
 
 	return s + spacing + "}"
-}
-
-func Literal(v any) *Expression {
-	return Expr().Literal(v)
 }
 
 func (e *Expression) Literal(v any) *Expression {
@@ -338,20 +350,12 @@ func (e *Expression) Literal(v any) *Expression {
 	return e
 }
 
-func Var(s string) *Expression {
-	return Expr().Var(s)
-}
-
 func (e *Expression) Var(v string) *Expression {
 	if len(v) == 0 {
 		panic("variable name cannot be empty")
 	}
 
-	if v[0] != '$' {
-		panic(fmt.Sprintf("variable must start with $: %s", v))
-	}
-
-	e.operand = variable(v)
+	e.operand = Var(v)
 
 	return e
 }
@@ -372,17 +376,9 @@ func (e *Expression) Func(name string, option ...FuncOption) *Expression {
 		panic("function name cannot be empty")
 	}
 
-	if e.function.name != "" {
-		panic("expression already has a function")
-	}
+	e.function = function{name: name, options: option}
 
-	switch name[0] {
-	default:
-		panic(fmt.Sprintf("function MUST start with :, + or -: %s", name))
-	case ':', '+', '-':
-		e.function = function{name: name, options: option}
-		return e
-	}
+	return e
 }
 
 func printLiteral(l any) string {
