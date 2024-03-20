@@ -60,6 +60,7 @@ func Test_Number(t *testing.T) {
 			if tt.expectedErr {
 				require.Error(t, err)
 				require.Empty(t, actual)
+
 				return
 			}
 
