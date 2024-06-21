@@ -1,6 +1,7 @@
 package template
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -183,6 +184,38 @@ func parseDatetimeOptions(options Options) (*datetimeOptions, error) {
 	return &opts, nil
 }
 
+// A conflictingOptions checks if options conform to WG registry spec:
+//
+//	https://github.com/unicode-org/message-format-wg/blob/main/spec/registry.md#options-3
+//
+// The :datetime function can use either the appropriate style options or can use a collection
+// of field options (but not both) to control the formatted output.
+// If both are specified, a Bad Option error MUST be emitted and a fallback value used as the
+// resolved value of the expression.
+func conflictingOptions(options datetimeOptions) error {
+	hasStyleOptions := options.TimeStyle != "" || options.DateStyle != ""
+	if !hasStyleOptions {
+		return nil
+	}
+
+	hasFieldOptions := options.Weekday != "" ||
+		options.Era != "" ||
+		options.Year != "" ||
+		options.Month != "" ||
+		options.Day != "" ||
+		options.Hour != "" ||
+		options.Minute != "" ||
+		options.Second != "" ||
+		options.FractionalSecondDigits != 0 ||
+		options.HourCycle != "" ||
+		options.TimeZoneName != ""
+	if hasFieldOptions {
+		return errors.New("bad option")
+	}
+
+	return nil
+}
+
 func datetimeFunc(input any, options Options, locale language.Tag) (any, error) {
 	value, err := parseDatetimeInput(input)
 	if err != nil {
@@ -194,6 +227,10 @@ func datetimeFunc(input any, options Options, locale language.Tag) (any, error) 
 		return "", err
 	}
 
+	if err := conflictingOptions(*opts); err != nil {
+		return "", err
+	}
+
 	if len(options) == 0 {
 		return fmt.Sprint(input), nil
 	}
@@ -201,7 +238,7 @@ func datetimeFunc(input any, options Options, locale language.Tag) (any, error) 
 	for optName := range options {
 		switch optName {
 		case "calendar", "numberingSystem", "hourCycle", "dayPeriod", "weekday", "era",
-			"year", "month", "day", "hour", "minute", "second", "fractionalSecondDigits":
+			"month", "day", "hour", "minute", "second", "fractionalSecondDigits":
 			return nil, fmt.Errorf("option '%s' is not implemented", optName)
 		}
 	}
@@ -235,6 +272,15 @@ func datetimeFunc(input any, options Options, locale language.Tag) (any, error) 
 	}
 
 	value = value.In(opts.TimeZone)
+
+	if opts.Year != "" {
+		switch opts.Year {
+		case "numeric":
+			layout = "2006"
+		case "2-digit":
+			layout = "06"
+		}
+	}
 
 	return value.Format(layout), nil
 }

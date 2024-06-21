@@ -50,6 +50,12 @@ func Test_Datetime(t *testing.T) {
 			options:  map[string]any{"timeStyle": "long", "dateStyle": "medium", "timeZone": "EET"},
 			expected: "02 Jan 2021 05:04:05",
 		},
+		{
+			name:     "year",
+			input:    testDate,
+			options:  map[string]any{"year": "2-digit"},
+			expected: "21",
+		},
 		// negative tests
 		{
 			name:        "not implemented",
@@ -61,6 +67,12 @@ func Test_Datetime(t *testing.T) {
 			name:        "illegal type",
 			input:       struct{}{},
 			options:     nil,
+			expectedErr: true,
+		},
+		{
+			name:        "has style options AND field options",
+			input:       testDate,
+			options:     map[string]any{"dateStyle": "short", "year": "2-digit"},
 			expectedErr: true,
 		},
 	}
