@@ -54,7 +54,6 @@ func init() {
 		"TestMF2WG/.message-format-wg/test/tests/functions/integer.json/hello_{4.2_:integer}",
 		"TestMF2WG/.message-format-wg/test/tests/functions/integer.json/hello_{-4.20_:integer}",
 
-		"TestMF2WG/.message-format-wg/test/tests/functions/string.json/.match_{$foo_:string}_1_{{one}}_*_{{other}}#01",
 		"TestMF2WG/.message-format-wg/test/tests/functions/string.json/.match_{$foo_:string}_1_{{one}}_*_{{other}}#02",
 
 		"TestMF2WG/.message-format-wg/test/tests/functions/time.json/.local_$d_=_{|2006-01-02T15:04:06|_:date}_{{{$d_:time}}}",

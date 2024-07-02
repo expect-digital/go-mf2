@@ -18,7 +18,7 @@ var stringRegistryFunc = RegistryFunc{
 
 func stringFunc(input any, options Options, locale language.Tag) (any, error) {
 	if input == nil {
-		return "", errors.New("string function requires input, got nil")
+		return "", nil
 	}
 
 	if len(options) > 0 {
