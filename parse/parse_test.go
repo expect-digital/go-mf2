@@ -375,6 +375,16 @@ func TestParseComplexMessage(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:  "trailing whitespace",
+			input: "{{Hello, World!}}\n\t ",
+			want: ComplexMessage{
+				Declarations: nil,
+				ComplexBody: QuotedPattern{
+					Text("Hello, World!"),
+				},
+			},
+		},
 		//nolint:dupword
 		{
 			name: "all declarations",
@@ -736,7 +746,7 @@ no no {{Hello!}}`,
 
 			// Check that AST message is equal to expected one.
 			if test.want.String() != got.Message.String() {
-				t.Errorf("want %s, got %s", test.want, test.want)
+				t.Errorf("want %s, got %s", test.want, got.Message)
 			}
 
 			// Check that AST message converted back to string is equal to input.
