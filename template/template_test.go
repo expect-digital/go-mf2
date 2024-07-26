@@ -249,8 +249,8 @@ func Test_ExecuteErrors(t *testing.T) {
 		},
 		{
 			name: "unsupported declaration",
-			text: ".reserved { name } {{Hello!}}",
-			want: want{execErr: mf2.ErrUnsupportedStatement, text: "Hello!"},
+			text: ".reserved { $name } {{Hello {$name}!}}",
+			want: want{execErr: mf2.ErrUnsupportedStatement, text: "Hello {$name}!"},
 		},
 		{
 			name:  "duplicate input declaration",

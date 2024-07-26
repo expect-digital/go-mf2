@@ -129,9 +129,12 @@ func (e *executer) execute() error {
 }
 
 func (e *executer) resolveComplexMessage(message ast.ComplexMessage) error {
-	var resolutionErr error
+	var (
+		resolutionErr error
+		err           error
+	)
 
-	err := e.resolveDeclarations(message.Declarations)
+	err = e.resolveDeclarations(message.Declarations)
 
 	switch {
 	case errors.Is(err, mf2.ErrUnsupportedStatement),
@@ -158,34 +161,36 @@ func (e *executer) resolveComplexMessage(message ast.ComplexMessage) error {
 }
 
 func (e *executer) resolveDeclarations(declarations []ast.Declaration) error {
-	m := make(map[ast.Value]struct{}, len(declarations))
-
 	for _, decl := range declarations {
 		switch d := decl.(type) {
 		case ast.ReservedStatement:
 			return fmt.Errorf("%w", mf2.ErrUnsupportedStatement)
 		case ast.LocalDeclaration:
-			m[d.Variable] = struct{}{}
-
-			resolved, err := e.resolveExpression(d.Expression)
-			// if can't resolve the expression, leave it as unresolved, e.g. {$foo}
-			e.variables[string(d.Variable)] = resolved
-
-			if err != nil {
-				return fmt.Errorf("local declaration: %w", err)
-			}
-
+			e.variables[string(d.Variable)] = d.Expression
 		case ast.InputDeclaration:
-			m[d.Operand] = struct{}{}
-
-			resolved, err := e.resolveExpression(ast.Expression(d))
-			// if can't resolve the expression, leave it as unresolved, e.g. {$foo}
-			e.variables[string(d.Operand.(ast.Variable))] = resolved //nolint: forcetypeassert // Will always be a variable.
-
-			if err != nil {
-				return fmt.Errorf("input declaration: %w", err)
+			v, ok := e.variables[string(d.Operand.(ast.Variable))]
+			if !ok {
+				e.variables[string(d.Operand.(ast.Variable))] = nil //nolint: forcetypeassert
+				continue
 			}
+
+			expr := ast.Expression(d)
+			expr.Operand = makeLiteral(v)
+			e.variables[string(d.Operand.(ast.Variable))] = expr //nolint: forcetypeassert // Will always be a variable.
 		}
+	}
+
+	return nil
+}
+
+func makeLiteral(v any) ast.Value {
+	switch t := v.(type) {
+	case string:
+		return ast.QuotedLiteral(t)
+	case float64:
+		return ast.NumberLiteral(t)
+	case int:
+		return ast.NumberLiteral(t)
 	}
 
 	return nil
@@ -205,12 +210,17 @@ func (e *executer) resolvePattern(pattern []ast.PatternPart) error {
 				return errorf("write text: %w", err)
 			}
 		case ast.Expression:
-			resolved, err := e.resolveExpression(v)
+			resolved, err := e.resolveExpression(v, true)
 			if err != nil {
 				resolutionErr = errors.Join(resolutionErr, err)
 			}
 
-			if _, err := e.w.Write([]byte(resolved)); err != nil {
+			s, ok := resolved.(string)
+			if !ok {
+				resolutionErr = errors.Join(resolutionErr, mf2.ErrUnsupportedExpression)
+			}
+
+			if _, err := e.w.Write([]byte(s)); err != nil {
 				return errorf("write resolved expression: %w", err)
 			}
 		// When formatting to a string, markup placeholders format to an empty string by default.
@@ -222,8 +232,13 @@ func (e *executer) resolvePattern(pattern []ast.PatternPart) error {
 	return resolutionErr
 }
 
-func (e *executer) resolveExpression(expr ast.Expression) (string, error) {
-	value, err := e.resolveValue(expr.Operand)
+func (e *executer) resolveExpression(expr ast.Expression, format bool) (any, error) {
+	var (
+		value any
+		err   error
+	)
+
+	value, err = e.resolveValue(expr.Operand)
 	if err != nil {
 		return fmt.Sprint(value), fmt.Errorf("expression: %w", err)
 	}
@@ -260,7 +275,11 @@ func (e *executer) resolveExpression(expr ast.Expression) (string, error) {
 		if value == nil {
 			return "{" + string(v.Start) + "}", resolutionErr
 		}
-	case nil: // noop, no annotation
+	case nil:
+	}
+
+	if !format {
+		return value, nil
 	}
 
 	fmtErroredExpr := func() string {
@@ -286,6 +305,8 @@ func (e *executer) resolveExpression(expr ast.Expression) (string, error) {
 			funcName = "string"
 		case float64:
 			funcName = "number"
+		case int:
+			funcName = "integer"
 		}
 	}
 
@@ -327,6 +348,18 @@ func (e *executer) resolveValue(v ast.Value) (any, error) {
 		val, ok := e.variables[string(v)]
 		if !ok {
 			return "{" + v.String() + "}", fmt.Errorf(`%w "%s"`, mf2.ErrUnresolvedVariable, v)
+		}
+
+		if expr, ok := val.(ast.Expression); ok {
+			r, err := e.resolveExpression(expr, false)
+			switch {
+			case errors.Is(err, mf2.ErrUnresolvedVariable):
+				return r, err
+			case err != nil:
+				return "{" + v.String() + "}", fmt.Errorf(`%w "%s"`, mf2.ErrUnresolvedVariable, v)
+			}
+
+			return r, nil
 		}
 
 		return val, nil
@@ -375,6 +408,34 @@ func (e *executer) resolveMatcher(m ast.Matcher) error {
 	return matcherErr
 }
 
+func (e *executer) hasAnnotation(v ast.Expression) bool {
+	if v.Annotation != nil {
+		return true
+	}
+
+	m, ok := e.template.ast.Message.(ast.ComplexMessage)
+	if !ok {
+		return false
+	}
+
+	for _, declaration := range m.Declarations {
+		switch d := declaration.(type) {
+		default:
+			continue
+		case ast.InputDeclaration:
+			if v.Operand.String() == d.Operand.String() {
+				return d.Annotation != nil
+			}
+		case ast.LocalDeclaration:
+			if v.Operand.String() == d.Variable.String() {
+				return e.hasAnnotation(d.Expression)
+			}
+		}
+	}
+
+	return false
+}
+
 func (e *executer) resolveSelector(matcher ast.Matcher) ([]any, error) {
 	var selectorErr error
 
@@ -387,11 +448,46 @@ func (e *executer) resolveSelector(matcher ast.Matcher) ([]any, error) {
 	}
 
 	for _, selector := range matcher.Selectors {
+		if !e.hasAnnotation(selector) {
+			return nil, mf2.ErrMissingSelectorAnnotation
+		}
+
+		if selector.Annotation == nil {
+			value, err := e.resolveValue(selector.Operand)
+			if err != nil {
+				addErr(fmt.Errorf(`%w "%s"`, err, selector.Operand))
+
+				value = ast.CatchAllKey{}
+			}
+
+			var f RegistryFunc
+
+			switch value.(type) {
+			case string:
+				f = e.template.registry["string"]
+			case float64:
+				f = e.template.registry["number"]
+			case int:
+				f = e.template.registry["integer"]
+			}
+
+			if f.Select != nil {
+				value, err = f.Select(value, map[string]any{}, e.template.locale)
+				if err != nil {
+					addErr(fmt.Errorf(`%w "%s"`, err, selector.Operand))
+
+					value = ast.CatchAllKey{}
+				}
+			}
+
+			selectors = append(selectors, value)
+
+			continue
+		}
+
 		var function ast.Function
 
 		switch annotation := selector.Annotation.(type) {
-		case nil:
-			return nil, mf2.ErrMissingSelectorAnnotation
 		case ast.ReservedAnnotation, ast.PrivateUseAnnotation:
 			return nil, mf2.ErrUnsupportedExpression
 		case ast.Function:
@@ -584,4 +680,8 @@ func (s SortableVariants) Less(i, j int) bool {
 
 func (s SortableVariants) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
+}
+
+type Valuer interface {
+	Value() (string, error)
 }

@@ -31,11 +31,11 @@ func init() {
 
 		"TestMF2WG/.message-format-wg/test/tests/functions/number.json/.local_$bar_=_{$none}_.match_{$foo_:number}_one_{{one}}_*_{{{$bar}}}",
 		"TestMF2WG/.message-format-wg/test/tests/functions/number.json/.input_{$none}_.match_{$foo_:number}_one_{{one}}_*_{{{$none}}}",
-		"TestMF2WG/.message-format-wg/test/tests/functions/number.json/.input_{$foo_:number}_.local_$bar_=_{$foo}_.match_{$bar}_one_{{one}}_*_{{other}}",
+		// "TestMF2WG/.message-format-wg/test/tests/functions/number.json/.input_{$foo_:number}_.local_$bar_=_{$foo}_.match_{$bar}_one_{{one}}_*_{{other}}",
 		"TestMF2WG/.message-format-wg/test/tests/functions/number.json/.match_{$foo_:number}_one_{{one}}_1_{{=1}}_*_{{other}}",
 		"TestMF2WG/.message-format-wg/test/tests/functions/number.json/.input_{$bar_:number}_.match_{$bar}_one_{{one}}_*_{{other}}",
 		"TestMF2WG/.message-format-wg/test/tests/functions/number.json/.input_{$foo_:number}_.match_{$foo}_one_{{one}}_*_{{other}}",
-		"TestMF2WG/.message-format-wg/test/tests/functions/number.json/.local_$foo_=_{$bar_:number}_.match_{$foo}_one_{{one}}_*_{{other}}",
+		// "TestMF2WG/.message-format-wg/test/tests/functions/number.json/.local_$foo_=_{$bar_:number}_.match_{$foo}_one_{{one}}_*_{{other}}",
 		"TestMF2WG/.message-format-wg/test/tests/functions/number.json/.match_{$foo_:number}_1_{{=1}}_one_{{one}}_*_{{other}}",
 	}
 }
