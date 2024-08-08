@@ -109,6 +109,39 @@ func NewResolvedValue(value any, options ...ResolvedValueOpt) *ResolvedValue {
 	return r
 }
 
+func newFallbackValue(value any) *ResolvedValue {
+	var s string
+
+	switch v := value.(type) {
+	default:
+		return NewResolvedValue("")
+	case ast.ReservedAnnotation:
+		s = string(v.Start)
+	case ast.PrivateUseAnnotation:
+		s = string(v.Start)
+	case ast.Function:
+		s = ":" + v.Identifier.String()
+	case ast.Variable:
+		s = v.String()
+	case ast.NameLiteral:
+		s = ast.QuotedLiteral(v).String()
+	case ast.NumberLiteral:
+		s = ast.QuotedLiteral(v.String()).String()
+	case ast.QuotedLiteral:
+		s = v.String()
+	case ast.Expression:
+		if v.Operand != nil {
+			return newFallbackValue(v.Operand)
+		}
+
+		return newFallbackValue(v.Annotation)
+	case *ResolvedValue:
+		return newFallbackValue(v.value)
+	}
+
+	return NewResolvedValue("{" + s + "}")
+}
+
 // New returns a new Template.
 func New(options ...Option) *Template {
 	t := &Template{
@@ -323,12 +356,12 @@ func (e *executer) resolveExpression(expr ast.Expression) (*ResolvedValue, error
 
 	switch v := expr.Annotation.(type) {
 	default:
-		return NewResolvedValue(""), fmt.Errorf(`expression: %T annotation "%s": %w`, v, v, mf2.ErrUnsupportedExpression)
+		return newFallbackValue(v), fmt.Errorf(`expression: %T annotation "%s": %w`, v, v, mf2.ErrUnsupportedExpression)
 	case ast.Function:
 		funcName = v.Identifier.Name
 
 		if options, err = e.resolveOptions(v.Options); err != nil {
-			return NewResolvedValue(""), fmt.Errorf("expression: %w", err)
+			return newFallbackValue(v), fmt.Errorf("expression: %w", err)
 		}
 	case ast.PrivateUseAnnotation:
 		// See ".message-format-wg/spec/formatting.md".
@@ -339,36 +372,21 @@ func (e *executer) resolveExpression(expr ast.Expression) (*ResolvedValue, error
 		resolutionErr = fmt.Errorf(`expression: private use annotation "%s": %w`, v, mf2.ErrUnsupportedExpression)
 
 		if value == nil {
-			return NewResolvedValue("{" + string(v.Start) + "}"), resolutionErr
+			return newFallbackValue(v), resolutionErr
 		}
 	case ast.ReservedAnnotation:
 		resolutionErr = fmt.Errorf(`expression: reserved annotation "%s": %w`, v, mf2.ErrUnsupportedExpression)
 
 		if value == nil {
-			return NewResolvedValue("{" + string(v.Start) + "}"), resolutionErr
+			return newFallbackValue(v), resolutionErr
 		}
 	case nil: // noop, no annotation
-	}
-
-	fmtErroredExpr := func() *ResolvedValue {
-		wrap := func(s fmt.Stringer) *ResolvedValue { return NewResolvedValue("{" + s.String() + "}") }
-
-		switch v := expr.Operand.(type) {
-		default:
-			return wrap(expr.Annotation)
-		case ast.Variable:
-			return wrap(v)
-		case ast.NameLiteral, ast.NumberLiteral:
-			return wrap(ast.QuotedLiteral(v.String()))
-		case ast.QuotedLiteral:
-			return wrap(v)
-		}
 	}
 
 	if funcName == "" {
 		switch t := value.(type) {
 		default: // TODO(jhorsts): how is unknown type formatted?
-			return fmtErroredExpr(), resolutionErr
+			return newFallbackValue(value), resolutionErr
 		case *ResolvedValue:
 			// the expression has already been resolved before
 			return t, resolutionErr
@@ -382,12 +400,12 @@ func (e *executer) resolveExpression(expr ast.Expression) (*ResolvedValue, error
 	f, ok := e.template.registry[funcName] // TODO(jhorsts): lookup by namespace and name
 	if !ok {
 		err = fmt.Errorf(`expression: %w "%s"`, mf2.ErrUnknownFunction, funcName)
-		return fmtErroredExpr(), errors.Join(resolutionErr, err)
+		return newFallbackValue(expr), errors.Join(resolutionErr, err)
 	}
 
 	result, err := f(NewResolvedValue(value), options, e.template.locale)
 	if err != nil {
-		return fmtErroredExpr(), errors.Join(resolutionErr, fmt.Errorf("expression: %w", err))
+		return newFallbackValue(expr), errors.Join(resolutionErr, fmt.Errorf("expression: %w", err))
 	}
 
 	return result, resolutionErr
@@ -412,7 +430,7 @@ func (e *executer) resolveValue(v ast.Value) (any, error) {
 	case ast.Variable:
 		val, ok := e.variables[string(v)]
 		if !ok {
-			return "{" + v.String() + "}", fmt.Errorf(`%w "%s"`, mf2.ErrUnresolvedVariable, v)
+			return newFallbackValue(v), fmt.Errorf(`%w "%s"`, mf2.ErrUnresolvedVariable, v)
 		}
 
 		return val, val.err

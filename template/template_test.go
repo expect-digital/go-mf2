@@ -240,7 +240,7 @@ func Test_ExecuteErrors(t *testing.T) {
 		{
 			name: "duplicate option name",
 			text: "Hello, { :number style=decimal style=percent }!",
-			want: want{execErr: mf2.ErrDuplicateOptionName, text: "Hello, !"},
+			want: want{execErr: mf2.ErrDuplicateOptionName, text: "Hello, {:number}!"},
 		},
 		{
 			name: "unsupported expression",

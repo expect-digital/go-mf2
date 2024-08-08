@@ -23,26 +23,7 @@ func init() {
 	failing = []string{
 		"TestMF2WG/.message-format-wg/test/tests/functions/datetime.json/{|2006-01-02T15:04:06|_:datetime_year=numeric_month=|2-digit|}",
 
-		"TestMF2WG/.message-format-wg/test/tests/syntax.json/.match{a_:f}a{{}}b{{}}*{{}}",
-		"TestMF2WG/.message-format-wg/test/tests/syntax.json/{:f_k_=_v}",
-		"TestMF2WG/.message-format-wg/test/tests/syntax.json/{:f_k=_v}",
-		"TestMF2WG/.message-format-wg/test/tests/syntax.json/{:f_k_=v}",
-		"TestMF2WG/.message-format-wg/test/tests/syntax.json/{:f_k=v}",
-		"TestMF2WG/.message-format-wg/test/tests/syntax.json/{:f}",
-		"TestMF2WG/.message-format-wg/test/tests/syntax.json/.match{a_:f}a{{}}*{{}}",
-		"TestMF2WG/.message-format-wg/test/tests/syntax.json/.match{a_:f}{b_:f}a_b{{}}*_*{{}}",
-		"TestMF2WG/.message-format-wg/test/tests/syntax.json/{:f_}",
-		"TestMF2WG/.message-format-wg/test/tests/syntax.json/{_:f}",
-		"TestMF2WG/.message-format-wg/test/tests/syntax.json/{:f_@c}",
-		"TestMF2WG/.message-format-wg/test/tests/syntax.json/.match{a_:f}*{{}}",
-		"TestMF2WG/.message-format-wg/test/tests/syntax.json/.match{a_:f}{b_:f}a_b_{{}}*_*{{}}",
-		"TestMF2WG/.message-format-wg/test/tests/syntax.json/.match{a_:f}a_{{}}*{{}}",
 		"TestMF2WG/.message-format-wg/test/tests/syntax.json/{0E-1}#01",
-		"TestMF2WG/.message-format-wg/test/tests/syntax.json/{:u:f}",
-		"TestMF2WG/.message-format-wg/test/tests/syntax.json/{$x_:u:f}",
-		"TestMF2WG/.message-format-wg/test/tests/syntax.json/{$x_:f}",
-		"TestMF2WG/.message-format-wg/test/tests/syntax.json/{a_:u:f}",
-		"TestMF2WG/.message-format-wg/test/tests/syntax.json/{a_:f}",
 		"TestMF2WG/.message-format-wg/test/tests/syntax.json/{0E1}",
 		"TestMF2WG/.message-format-wg/test/tests/syntax.json/{0E-1}",
 		"TestMF2WG/.message-format-wg/test/tests/syntax.json/{0e1}",
@@ -255,14 +236,16 @@ func assertErr(t *testing.T, want Errors, err error) {
 			wantErr(mf2.ErrMissingFallbackVariant)
 		case "missing-selector-annotation":
 			wantErr(mf2.ErrMissingSelectorAnnotation)
+		case "syntax-error":
+			wantErr(mf2.ErrSyntax)
+		case "unknown-function":
+			wantErr(mf2.ErrUnknownFunction)
+		case "unresolved-variable":
+			wantErr(mf2.ErrUnresolvedVariable)
 		case "unsupported-expression":
 			wantErr(mf2.ErrUnsupportedExpression)
 		case "unsupported-statement":
 			wantErr(mf2.ErrUnsupportedStatement)
-		case "unresolved-variable":
-			wantErr(mf2.ErrUnresolvedVariable)
-		case "syntax-error":
-			wantErr(mf2.ErrSyntax)
 		case "variant-key-mismatch":
 			wantErr(mf2.ErrVariantKeyMismatch)
 		}
